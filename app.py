@@ -9,13 +9,46 @@ import pandas as pd
 import streamlit as st
 
 # ----------------------------
-# Auto-create database for cloud deployment
+# Paths and database bootstrap
 # ----------------------------
 BASE_DIR = Path(__file__).resolve().parent
 DB_FILE = BASE_DIR / "olist_ecommerce.db"
+DB_LOADER_FILE = BASE_DIR / "db_loader.py"
 
-if not DB_FILE.exists():
-    subprocess.run([sys.executable, "db_loader.py"], check=True)
+REQUIRED_TABLES = {
+    "orders",
+    "customers",
+    "payments",
+    "reviews",
+    "order_items",
+    "products",
+    "sellers",
+}
+
+
+def database_is_ready() -> bool:
+    if not DB_FILE.exists():
+        return False
+
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = {row[0] for row in cursor.fetchall()}
+        conn.close()
+        return REQUIRED_TABLES.issubset(tables)
+    except Exception:
+        return False
+
+
+def ensure_database():
+    if not database_is_ready():
+        if DB_FILE.exists():
+            DB_FILE.unlink()
+        subprocess.run([sys.executable, str(DB_LOADER_FILE)], check=True)
+
+
+ensure_database()
 
 st.set_page_config(
     page_title="Smart Data Assistant",
