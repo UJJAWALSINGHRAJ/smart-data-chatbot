@@ -1,9 +1,21 @@
 import re
 import sqlite3
+import subprocess
+import sys
+from pathlib import Path
 from difflib import SequenceMatcher
 
 import pandas as pd
 import streamlit as st
+
+# ----------------------------
+# Auto-create database for cloud deployment
+# ----------------------------
+BASE_DIR = Path(__file__).resolve().parent
+DB_FILE = BASE_DIR / "olist_ecommerce.db"
+
+if not DB_FILE.exists():
+    subprocess.run([sys.executable, "db_loader.py"], check=True)
 
 st.set_page_config(
     page_title="Smart Data Assistant",
@@ -17,7 +29,7 @@ st.set_page_config(
 # Database helpers
 # ----------------------------
 def run_query(query: str) -> pd.DataFrame:
-    conn = sqlite3.connect("olist_ecommerce.db")
+    conn = sqlite3.connect(DB_FILE)
     try:
         return pd.read_sql_query(query, conn)
     finally:
@@ -194,14 +206,12 @@ def split_multi_input(user_input: str) -> list[str]:
     if not raw:
         return []
 
-    # Strong split by punctuation first
     parts = re.split(r"[?!.]+", raw)
     parts = [p.strip() for p in parts if p.strip()]
 
     if len(parts) > 1:
         return parts[:5]
 
-    # Soft split by connectors
     text = normalize_text(raw)
 
     split_markers = [
@@ -220,7 +230,6 @@ def split_multi_input(user_input: str) -> list[str]:
                 new_segments.append(seg)
         segments = new_segments
 
-    # Extra split when multiple known questions are chained
     trigger_phrases = [
         "hello", "how are you", "who are you", "what is sql", "explain this project",
         "how many orders", "total orders", "total revenue", "payment method",
